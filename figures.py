@@ -198,6 +198,9 @@ def plot_sorted_stacked_bar_chart(df: pd.DataFrame, models: List[str], output_fi
         y=alt.Y('state_name:N', sort='-x'),
         color='model'
     )
+    # rule = alt.Chart(df_filtered).mark_rule(color='red').encode(
+    # x='mean(mean):Q'
+    # )
     chart.save(output_filename)
 
 if __name__ == "__main__": 
