@@ -173,7 +173,7 @@ def plot_maps_wrapped_facet(df: pd.DataFrame, models: List[str], output_filename
     # )
     # chart.save('states.html')
 
-def plot_stacked_bar_chart(df: pd.DataFrame, models: List[str], output_filename: str):
+def plot_normalized_stacked_bar_chart(df: pd.DataFrame, models: List[str], output_filename: str):
     df_filtered = df.loc[df['model'].isin(models)]
     chart = alt.Chart(df_filtered).mark_bar().encode(
         x=alt.X('sum(mean)', stack="normalize"),
@@ -182,6 +182,23 @@ def plot_stacked_bar_chart(df: pd.DataFrame, models: List[str], output_filename:
     )
     chart.save(output_filename)
 
+def plot_stacked_bar_chart(df: pd.DataFrame, models: List[str], output_filename: str):
+    df_filtered = df.loc[df['model'].isin(models)]
+    chart = alt.Chart(df_filtered).mark_bar().encode(
+        x='sum(mean)',
+        y='state_name',
+        color='model'
+    )
+    chart.save(output_filename)
+
+def plot_sorted_stacked_bar_chart(df: pd.DataFrame, models: List[str], output_filename: str):
+    df_filtered = df.loc[df['model'].isin(models)]
+    chart = alt.Chart(df_filtered).mark_bar().encode(
+        x='sum(mean)',
+        y=alt.Y('state_name:N', sort='-x'),
+        color='model'
+    )
+    chart.save(output_filename)
 
 if __name__ == "__main__": 
     # Load state ids global dict
@@ -204,9 +221,11 @@ if __name__ == "__main__":
     
     # Exhibit 2b-e, stacked bar
     models_of_interest = ['Dental','Home health','Hospital','Skilled nursing','Other professional','Other','Pharmaceuticals', 'Physician/clinical services','Medicaid','Medicare','OOP','Private']
-    plot_stacked_bar_chart(df, models_of_interest, "stacked_bar.html")
+    plot_stacked_bar_chart(df, models_of_interest, "stacked_bar_all.html")
     models_of_interest = ['Medicare', 'Medicaid', 'Private', 'OOP']
     plot_stacked_bar_chart(df, models_of_interest, "stacked_bar_selected.html")
+    plot_sorted_stacked_bar_chart(df, models_of_interest, "sorted_stacked_bar_selected.html")
+    plot_normalized_stacked_bar_chart(df, models_of_interest, "normalized_stacked_bar_selected.html")
 
 
 # Figure 3 
