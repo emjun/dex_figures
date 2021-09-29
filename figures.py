@@ -61,23 +61,50 @@ for s in unique_states:
         # Append to dictionary of values 
         values[u].append(u_val)
 
+# Create per total values 
+import pdb; pdb.set_trace()
+# Medicare_per_total 
+medicare_per_total = list()
+medicare = values['Medicare']
+aggregate = values['Aggregate']
+
+for i in range(len(medicare)): 
+    proportion = medicare[i] / aggregate[i]
+    medicare_per_total = proportion
+
+models_of_interest = ['Medicare', 'Medicaid', 'Private', 'OOP']
+aggregate_per_capita = values['Aggregate']
+for u in models_of_interest: 
+    u_per_capita_data = values[u]
+    assert(len(u_per_capita_data) == len(aggregate_per_capita))
+
+    u_per_total_data = list()
+    for i in range(len(u_per_capita_data)): 
+        val = u_per_capita_data[i] / aggregate_per_capita[i]
+        u_per_total_data.append(val)
+
+    u_per_total_name = u + "_per_total"
+    values[u_per_total_name] = u_per_total_data
+
 # Check length of all values in dictionary 
 for k, v in values.items(): 
     assert(isinstance(v, list))
     assert(len(v) == 51)
+
+
 # Create a new df with separate columns for all the model values 
 values['id'] = ids
 df_2019_vals = pd.DataFrame.from_dict(values)
 
 # Map with estimated health spend per capita, 2019  --> ???
-# Map with estimated Medicare spend per total, 2019  --> model == Medicare
+# Map with estimated Medicare spend per total, 2019  --> model == Medicare / model == Aggregate
 # Map with estimated Medicaid spend per total, 2019  --> model == medicaid
 # Map with estimated Private insurance spend per total, 2019  --> model == Private
 # Map with estimated OOP and Other spend per total, 2019  --> model == OOP || Other  --> What about Other Professional?
 # Map with AROC total spend per capita, 2014-2019 --> ???
 
 states = alt.topo_feature(data.us_10m.url, 'states')
-variable_list = ['Medicare', 'Medicaid', 'Private', 'OOP']
+variable_list = ['Medicare_per_total', 'Medicaid_per_total', 'Private_per_total', 'OOP_per_total']
 
 # chart = alt.Chart(states).mark_geoshape().encode(
 #     color='Medicare:Q'
