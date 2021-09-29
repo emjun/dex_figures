@@ -5,8 +5,29 @@ import altair as alt
 from pandas.core.algorithms import isin
 from vega_datasets import data
 
+states_to_ids = dict()
+def load_state_ids(): 
+    global states_to_ids
 
-def plot_maps(df: pd.DataFrame, variables: List[str]):
+    # State names to FIPS
+    df_ids = pd.read_csv("data/state_fips.csv", header=0)
+    # Map the state names to their FIPS id numbers
+    states_to_ids = dict()
+    states_names = df_ids['STATE_NAME']
+    states_ids = df_ids['STATE']
+
+    for i in range(len(states_names)): 
+        name = states_names[i]
+        id = states_ids[i]
+        assert(name not in states_to_ids.keys())
+        states_to_ids[name] = id
+
+def look_up_state_id(state_name: str): 
+    global states_to_ids
+
+    return states_to_ids[state_name]
+    
+def wrangle_data(df: pd.DataFrame): 
     # Check properties of the dataset 
     unique_models = pd.unique(df['model'])
     print(f"Unique model names: {unique_models}")
@@ -26,21 +47,11 @@ def plot_maps(df: pd.DataFrame, variables: List[str]):
         id = states_ids[i]
         assert(name not in states_to_ids.keys())
         states_to_ids[name] = id
-    # for id in df_ids: 
-    #     state_name = id[2] # 'STATE_NAME'
-    #     state_id = id[0] # 'STATE'
-    #     import pdb; pdb.set_trace()
-    #     assert(state_name not in states_to_ids.keys())
-    #     states_to_ids[state_name] = state_id
 
     ids = list()
     for s in unique_states: 
         ids.append(states_to_ids[s])
     assert(len(ids) == 51)
-
-    # Figure 2 
-    # Goal: Highlight geographic patterns 
-    # Exhibit 2a-f: Figure with six US maps 
 
     # Get only 2019 data
     df_2019 = df.query("year_id == 2019")
@@ -60,15 +71,6 @@ def plot_maps(df: pd.DataFrame, variables: List[str]):
             values[u].append(u_val)
 
     # Create per total values 
-    # Medicare_per_total 
-    medicare_per_total = list()
-    medicare = values['Medicare']
-    aggregate = values['Aggregate']
-
-    for i in range(len(medicare)): 
-        proportion = medicare[i] / aggregate[i]
-        medicare_per_total = proportion
-
     models_of_interest = ['Medicare', 'Medicaid', 'Private', 'OOP']
     aggregate_per_capita = values['Aggregate']
     for u in models_of_interest: 
@@ -93,21 +95,76 @@ def plot_maps(df: pd.DataFrame, variables: List[str]):
     values['id'] = ids
     df_2019_vals = pd.DataFrame.from_dict(values)
 
-    # Map with estimated health spend per capita, 2019  --> ???
-    # Map with estimated Medicare spend per total, 2019  --> model == Medicare / model == Aggregate
-    # Map with estimated Medicaid spend per total, 2019  --> model == medicaid
-    # Map with estimated Private insurance spend per total, 2019  --> model == Private
-    # Map with estimated OOP and Other spend per total, 2019  --> model == OOP || Other  --> What about Other Professional?
-    # Map with AROC total spend per capita, 2014-2019 --> ???
+    return df_2019_vals
+
+# Figure 2 
+# Goal: Highlight geographic patterns 
+# Exhibit 2a-f: Figure with six US maps 
+# Map with estimated Medicare spend per total, 2019  --> model == Medicare / model == Aggregate
+# Map with estimated Medicaid spend per total, 2019  --> model == medicaid
+# Map with estimated Private insurance spend per total, 2019  --> model == Private
+# Map with estimated OOP and Other spend per total, 2019  --> model == OOP || Other  --> What about Other Professional?
+def plot_maps(df: pd.DataFrame, models: List[str], output_filename: str):    
+    df_wrangled = wrangle_data(df)
 
     states = alt.topo_feature(data.us_10m.url, 'states')
-    variable_list = ['Medicare_per_total', 'Medicaid_per_total', 'Private_per_total', 'OOP_per_total']
 
+    chart = alt.Chart(states).mark_geoshape().encode(
+        alt.Color(alt.repeat('row'), type='quantitative')
+    ).transform_lookup(
+        lookup='id',
+        from_=alt.LookupData(df_wrangled, 'id', models)
+    ).properties(
+        width=500,
+        height=300
+    ).project(
+        type='albersUsa'
+    ).repeat(
+        row=models
+    ).resolve_scale(
+        color='independent'
+    )
+    chart.save(output_filename)
+
+
+
+def plot_maps_wrapped_facet(df: pd.DataFrame, models: List[str], output_filename: str):    
+    # Filter to only look at 2019 data
+    df_2019 = df.query("year_id == 2019")
+    # Filter to only look at data from specific models
+    df_2019_filtered = df_2019[df_2019['model'].isin(models)]
+    states = df_2019_filtered['state_name']
+    res = map(look_up_state_id, states)
+    df_2019_filtered['id'] = list(res)
+
+    states = alt.topo_feature(data.us_10m.url, 'states')
+    chart = alt.Chart(df_2019_filtered).mark_geoshape().encode(
+    shape='geo:G',
+    color='mean:Q',
+    tooltip=['state_name:N', 'mean:Q'],
+    facet=alt.Facet('model:N', columns=2),
+    ).transform_lookup(
+        lookup='id',
+        from_=alt.LookupData(data=states, key='id'),
+        as_='geo'
+    ).properties(
+        width=300,
+        height=175,
+    ).project(
+        type='albersUsa'
+    )
+    chart.save(output_filename)
+
+    
+# def plot_map(df, models: List[str], output_filename: str): 
+    # states = alt.topo_feature(data.us_10m.url, 'states')
+    # # Map with estimated health spend per capita, 2019  --> Aggregate
+    # # Map with AROC total spend per capita, 2014-2019 --> AROC scores
     # chart = alt.Chart(states).mark_geoshape().encode(
     #     color='Medicare:Q'
     # ).transform_lookup(
     #     lookup='id',
-    #     from_=alt.LookupData(df_2019_vals, 'id', ['Medicare'])
+    #     from_=alt.LookupData(df, 'id', ['Medicare'])
     # ).project(
     #     type='albersUsa'
     # ).properties(
@@ -115,24 +172,6 @@ def plot_maps(df: pd.DataFrame, variables: List[str]):
     #     height=300
     # )
     # chart.save('states.html')
-
-    chart = alt.Chart(states).mark_geoshape().encode(
-        alt.Color(alt.repeat('row'), type='quantitative')
-    ).transform_lookup(
-        lookup='id',
-        from_=alt.LookupData(df_2019_vals, 'id', variable_list)
-    ).properties(
-        width=500,
-        height=300
-    ).project(
-        type='albersUsa'
-    ).repeat(
-        row=variable_list
-    ).resolve_scale(
-        color='independent'
-    )
-    chart.save('all_maps.html')
-    
 
 def plot_stacked_bar_chart(df: pd.DataFrame, models: List[str], output_filename: str):
     df_filtered = df.loc[df['model'].isin(models)]
@@ -145,12 +184,25 @@ def plot_stacked_bar_chart(df: pd.DataFrame, models: List[str], output_filename:
 
 
 if __name__ == "__main__": 
+    # Load state ids global dict
+    load_state_ids()
+
     # Load flat file 
     # TODO: Take the CSV in as an argument
     file_path = os.path.relpath("data/compiled_final_results.csv")
     df = pd.read_csv(file_path, header=0)
-    variables = ['location_id','year_id','state_name','mean','lower','upper','data','model']
-    plot_maps(df, variables)
+    # variables = ['location_id','year_id','state_name','mean','lower','upper','data','model']
+    # Exhibit 2a
+    models_of_interest = ['Aggregate']
+    plot_maps(df, models_of_interest, "aggregate_map.html")
+
+    # Exhibit 2b-e, maps
+    models_of_interest = ['Medicare_per_total', 'Medicaid_per_total', 'Private_per_total', 'OOP_per_total']
+    plot_maps(df, models_of_interest, "all_maps.html")
+    models_of_interest = ['Medicare', 'Medicaid', 'Private', 'OOP']
+    plot_maps_wrapped_facet(df, models_of_interest, "all_maps_faceted.html")
+    
+    # Exhibit 2b-e, stacked bar
     models_of_interest = ['Dental','Home health','Hospital','Skilled nursing','Other professional','Other','Pharmaceuticals', 'Physician/clinical services','Medicaid','Medicare','OOP','Private']
     plot_stacked_bar_chart(df, models_of_interest, "stacked_bar.html")
     models_of_interest = ['Medicare', 'Medicaid', 'Private', 'OOP']
