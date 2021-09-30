@@ -126,6 +126,24 @@ def plot_maps(df: pd.DataFrame, models: List[str], output_filename: str):
     )
     chart.save(output_filename)
 
+# Map with AROC total spend per capita, 2013-2019 --> AROC scores
+def plot_map_aroc(df: pd.DataFrame, output_filename: str):    
+    df_filtered = df.query("model_set == 'Aggregate'")
+    df_filtered['id'] = df_filtered['state']
+
+    states = alt.topo_feature(data.us_10m.url, 'states')
+    chart = alt.Chart(states).mark_geoshape().encode(
+        color='aroc:Q'
+    ).transform_lookup(
+        lookup='id',
+        from_=alt.LookupData(df_filtered, 'id', ['aroc'])
+    ).project(
+        type='albersUsa'
+    ).properties(
+        width=500,
+        height=300
+    )
+    chart.save(output_filename)
 
 
 def plot_maps_wrapped_facet(df: pd.DataFrame, models: List[str], output_filename: str):    
@@ -277,11 +295,15 @@ if __name__ == "__main__":
     # Load flat file 
     # TODO: Take the CSV in as an argument
     file_path = os.path.relpath("data/final_estimates.csv")
+    file_path_aroc = os.path.relpath("data/aroc.csv")
     df = pd.read_csv(file_path, header=0)
-    # variables = ['location_id','year_id','state_name','mean','lower','upper','data','model']
+    df_aroc = pd.read_csv(file_path_aroc, header=0)
     # Exhibit 2a
     models_of_interest = ['Aggregate']
     plot_maps(df, models_of_interest, "aggregate_map.html")
+
+    # models_of_interest = ['Aggregate']
+    plot_map_aroc(df_aroc, "aroc_map.html")
 
     # Exhibit 2b-e, maps
     models_of_interest = ['Medicare_per_total', 'Medicaid_per_total', 'Private_per_total', 'OOP_per_total']
@@ -290,8 +312,6 @@ if __name__ == "__main__":
     plot_maps_wrapped_facet(df, models_of_interest, "all_maps_faceted.html")
     
     # Exhibit 2b-e, stacked bar
-    # models_of_interest = ['Dental','Home health','Hospital','Skilled nursing','Other professional','Other','Pharmaceuticals', 'Physician/clinical services','Medicaid','Medicare','OOP','Private']
-    # plot_stacked_bar_chart(df, models_of_interest, 2019,  "stacked_bar_all.html")
     models_of_interest = ['Medicare', 'Medicaid', 'Private', 'OOP']
     plot_stacked_bar_chart(df, models_of_interest, 2019, "stacked_bar_selected_payer.html")
     plot_sorted_stacked_bar_chart(df, models_of_interest, 2019, "sorted_stacked_bar_selected_payer.html")
