@@ -135,26 +135,26 @@ def plot_maps_wrapped_facet(df: pd.DataFrame, models: List[str], output_filename
     df_2019_filtered = df_2019[df_2019['model'].isin(models)]
 
     # Force order of data to be ["Medicare", "Medicaid", "Private","OOP"]
-    df_2019_filtered.loc[df_2019_filtered['model'] == "Medicare", "model"] = "d_Medicare"
-    df_2019_filtered.loc[df_2019_filtered['model'] == "Medicaid", "model"] = "c_Medicaid"
-    df_2019_filtered.loc[df_2019_filtered['model'] == "Private", "model"] = "b_Private"
-    df_2019_filtered.loc[df_2019_filtered['model'] == "OOP", "model"] = "a_OOP"
+    df_2019_filtered.loc[df_2019_filtered['model'] == "Medicare", "model"] = "a_Medicare"
+    df_2019_filtered.loc[df_2019_filtered['model'] == "Medicaid", "model"] = "b_Medicaid"
+    df_2019_filtered.loc[df_2019_filtered['model'] == "Private", "model"] = "c_Private"
+    df_2019_filtered.loc[df_2019_filtered['model'] == "OOP", "model"] = "d_OOP"
 
-
-    # states = df_2019_filtered['state_name']
-    # res = map(look_up_state_id, states)
-    # df_2019_filtered['id'] = list(res)
+    states = df_2019_filtered['state_name']
+    res = map(look_up_state_id, states)
+    df_2019_filtered['id'] = list(res)
+    assert(df_2019_filtered['state'].equals(df_2019_filtered['id']))
 
     states = alt.topo_feature(data.us_10m.url, 'states')
     chart = alt.Chart(df_2019_filtered).mark_geoshape().encode(
     shape='geo:G',
-    color='pc:Q',
+    color='fr:Q',
     # color=alt.Color("pc:Q", sort=alt.SortField("order", ["Medicare", "Medicaid", "Private","OOP"])),
-    tooltip=['state_name:N', 'pc:Q'],
+    tooltip=['state_name:N', 'fr:Q'],
     facet=alt.Facet('model:N', columns=2),
     ).transform_lookup(
         lookup='id',
-        from_=alt.LookupData(data=states, key='state'),
+        from_=alt.LookupData(data=states, key='id'),
         as_='geo'
     ).properties(
         width=300,
