@@ -166,9 +166,9 @@ def plot_maps_wrapped_facet(df: pd.DataFrame, models: List[str], output_filename
     states = alt.topo_feature(data.us_10m.url, 'states')
     chart = alt.Chart(df_2019_filtered).mark_geoshape().encode(
     shape='geo:G',
-    color='fr:Q',
+    color='pc:Q',
     # color=alt.Color("pc:Q", sort=alt.SortField("order", ["Medicare", "Medicaid", "Private","OOP"])),
-    tooltip=['state_name:N', 'fr:Q'],
+    tooltip=['state_name:N', 'pc:Q'],
     facet=alt.Facet('model:N', columns=2),
     ).transform_lookup(
         lookup='id',
@@ -201,8 +201,37 @@ def plot_maps_wrapped_facet(df: pd.DataFrame, models: List[str], output_filename
     # chart.save('states.html')
 
 # Add regions
-def calculate_regions(df: pd.DataFrame):
-    pass 
+def calculate_regions(df: pd.DataFrame, year: int):
+    df_filtered = df.query(f"year_id == {year}")
+    # df_filtered = df_filtered.query("model_set == 'Aggregate'")
+
+    # array(['South', 'West', 'Northeast', 'Midwest'], dtype=object)
+    states = df_filtered['state_name']    
+    pc = df_filtered['pc']
+    assert(len(states) == len(pc))
+
+    unique_regions = pd.unique(df_filtered['region'])
+    for r in unique_regions: 
+        # Calculate values
+        r_subset = df_filtered.query(f"region == '{r}'")
+        num_states = len(r_subset)
+        r_weighted_pc = (r_subset['population'] * r_subset['pc'])/num_states
+
+        ## TODO: Start here For each region, add Medicaid/Medicare/Private/OOP
+
+        # Store values
+        states.append(r)
+        pc.append(r_weighted_pc)
+        
+    assert(len(states) == len(pc))
+    assert(len(states) == 51 + len(unique_regions))
+
+    
+
+    # Add US
+
+    # ASSERT LENGTH is 51 + Region + US
+    import pdb; pdb.set_trace()
 
 def plot_normalized_stacked_bar_chart(df: pd.DataFrame, models: List[str], year: int, output_filename: str):
     # Filter data to only include models of interest
@@ -298,11 +327,14 @@ if __name__ == "__main__":
     file_path_aroc = os.path.relpath("data/aroc.csv")
     df = pd.read_csv(file_path, header=0)
     df_aroc = pd.read_csv(file_path_aroc, header=0)
+
+    calculate_regions(df, 2019)
+
     # Exhibit 2a
     models_of_interest = ['Aggregate']
     plot_maps(df, models_of_interest, "aggregate_map.html")
 
-    # models_of_interest = ['Aggregate']
+
     plot_map_aroc(df_aroc, "aroc_map.html")
 
     # Exhibit 2b-e, maps
