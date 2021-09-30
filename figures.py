@@ -133,9 +133,17 @@ def plot_maps_wrapped_facet(df: pd.DataFrame, models: List[str], output_filename
     df_2019 = df.query("year_id == 2019")
     # Filter to only look at data from specific models
     df_2019_filtered = df_2019[df_2019['model'].isin(models)]
-    states = df_2019_filtered['state_name']
-    res = map(look_up_state_id, states)
-    df_2019_filtered['id'] = list(res)
+
+    # Force order of data to be ["Medicare", "Medicaid", "Private","OOP"]
+    df_2019_filtered.loc[df_2019_filtered['model'] == "Medicare", "model"] = "d_Medicare"
+    df_2019_filtered.loc[df_2019_filtered['model'] == "Medicaid", "model"] = "c_Medicaid"
+    df_2019_filtered.loc[df_2019_filtered['model'] == "Private", "model"] = "b_Private"
+    df_2019_filtered.loc[df_2019_filtered['model'] == "OOP", "model"] = "a_OOP"
+
+
+    # states = df_2019_filtered['state_name']
+    # res = map(look_up_state_id, states)
+    # df_2019_filtered['id'] = list(res)
 
     states = alt.topo_feature(data.us_10m.url, 'states')
     chart = alt.Chart(df_2019_filtered).mark_geoshape().encode(
@@ -146,7 +154,7 @@ def plot_maps_wrapped_facet(df: pd.DataFrame, models: List[str], output_filename
     facet=alt.Facet('model:N', columns=2),
     ).transform_lookup(
         lookup='id',
-        from_=alt.LookupData(data=states, key='id'),
+        from_=alt.LookupData(data=states, key='state'),
         as_='geo'
     ).properties(
         width=300,
@@ -294,8 +302,5 @@ if __name__ == "__main__":
     # plot_normalized_stacked_bar_chart(df, models_of_interest, 2019, "normalized_stacked_bar_selected.html")
 
 
-# Figure 3 
-# Exhibit 3a-c: Three densities showing growth in spending per capita of total, Medicaid, and Non-Medicaid, with two densities per panel – expansion and non-Medicaid expansion. (Sawyer has code for something similar to this.) Like this but only three of the six panels. à Goal: show that growth rates for expanders and non-expanders weren’t that different.  
+# TODO: Add region and US total 
 
-# Figure 3 Alternative 
-# Box and whisker plot 
