@@ -65,7 +65,7 @@ def wrangle_data(df: pd.DataFrame):
         for u in unique_models: 
             u_row = df_state_vals.query(f"model == '{u}'")
             assert(len(u_row) == 1)
-            u_val = u_row.iloc[0]['mean']
+            u_val = u_row.iloc[0]['pc']
             
             # Append to dictionary of values 
             values[u].append(u_val)
@@ -140,8 +140,9 @@ def plot_maps_wrapped_facet(df: pd.DataFrame, models: List[str], output_filename
     states = alt.topo_feature(data.us_10m.url, 'states')
     chart = alt.Chart(df_2019_filtered).mark_geoshape().encode(
     shape='geo:G',
-    color='mean:Q',
-    tooltip=['state_name:N', 'mean:Q'],
+    color='pc:Q',
+    # color=alt.Color("pc:Q", sort=alt.SortField("order", ["Medicare", "Medicaid", "Private","OOP"])),
+    tooltip=['state_name:N', 'pc:Q'],
     facet=alt.Facet('model:N', columns=2),
     ).transform_lookup(
         lookup='id',
@@ -173,34 +174,92 @@ def plot_maps_wrapped_facet(df: pd.DataFrame, models: List[str], output_filename
     # )
     # chart.save('states.html')
 
-def plot_normalized_stacked_bar_chart(df: pd.DataFrame, models: List[str], output_filename: str):
+# Add regions
+def calculate_regions(df: pd.DataFrame):
+    pass 
+
+def plot_normalized_stacked_bar_chart(df: pd.DataFrame, models: List[str], year: int, output_filename: str):
+    # Filter data to only include models of interest
     df_filtered = df.loc[df['model'].isin(models)]
+    # Filter data to only include data from @param year
+    df_filtered = df_filtered.query(f"year_id == {year}")
+
+    ## TODO: Add regions & US
+
+    # Force order of data to be ["Medicare", "Medicaid", "Private","OOP"]
+    df_filtered.loc[df_filtered['model'] == "Medicare", "model"] = "d_Medicare"
+    df_filtered.loc[df_filtered['model'] == "Medicaid", "model"] = "c_Medicaid"
+    df_filtered.loc[df_filtered['model'] == "Private", "model"] = "b_Private"
+    df_filtered.loc[df_filtered['model'] == "OOP", "model"] = "a_OOP"
+
     chart = alt.Chart(df_filtered).mark_bar().encode(
-        x=alt.X('sum(mean)', stack="normalize"),
+        x=alt.X('sum(pc)', stack="normalize"),
         y='state_name',
-        color='model'
-    )
+        # color='model'
+        color=alt.Color('model', sort=['d_Medicare', 'c_Medicaid', 'b_Private', 'a_OOP'])
+    ).configure_range(
+        category={'scheme': ["#4c78a8", "#83bcb6", "#f58518", "#e45756"]}
+    )   
     chart.save(output_filename)
 
-def plot_stacked_bar_chart(df: pd.DataFrame, models: List[str], output_filename: str):
+def plot_stacked_bar_chart(df: pd.DataFrame, models: List[str], year: int, output_filename: str):
+    # Filter data to only include models of interest
     df_filtered = df.loc[df['model'].isin(models)]
+    # Filter data to only include data from @param year
+    df_filtered = df_filtered.query(f"year_id == {year}")
+
+    # Force order of data to be ["Medicare", "Medicaid", "Private","OOP"]
+    df_filtered.loc[df_filtered['model'] == "Medicare", "model"] = "d_Medicare"
+    df_filtered.loc[df_filtered['model'] == "Medicaid", "model"] = "c_Medicaid"
+    df_filtered.loc[df_filtered['model'] == "Private", "model"] = "b_Private"
+    df_filtered.loc[df_filtered['model'] == "OOP", "model"] = "a_OOP"
+
+    
     chart = alt.Chart(df_filtered).mark_bar().encode(
-        x='sum(mean)',
+        x='sum(pc)',
         y='state_name',
-        color='model'
-    )
+        # color='model'
+        color=alt.Color('model', sort=['d_Medicare', 'c_Medicaid', 'b_Private', 'a_OOP'])
+    ).configure_range(
+        category={'scheme': ["#4c78a8", "#83bcb6", "#f58518", "#e45756"]}
+    )   
+
     chart.save(output_filename)
 
-def plot_sorted_stacked_bar_chart(df: pd.DataFrame, models: List[str], output_filename: str):
+def plot_sorted_stacked_bar_chart(df: pd.DataFrame, models: List[str], year: int, output_filename: str):
+    # Filter data to only include models of interest
     df_filtered = df.loc[df['model'].isin(models)]
+    # Filter data to only include data from @param year
+    df_filtered = df_filtered.query(f"year_id == {year}")
+
+    # Force order of data to be ["Medicare", "Medicaid", "Private","OOP"]
+    df_filtered.loc[df_filtered['model'] == "Medicare", "model"] = "d_Medicare"
+    df_filtered.loc[df_filtered['model'] == "Medicaid", "model"] = "c_Medicaid"
+    df_filtered.loc[df_filtered['model'] == "Private", "model"] = "b_Private"
+    df_filtered.loc[df_filtered['model'] == "OOP", "model"] = "a_OOP"
+    
     chart = alt.Chart(df_filtered).mark_bar().encode(
-        x='sum(mean)',
+        x='sum(pc)',
+        y=alt.Y('state_name:N', sort='-x'),
+        color=alt.Color('model', sort=['d_Medicare', 'c_Medicaid', 'b_Private', 'a_OOP'])
+    ).configure_range(
+        category={'scheme': ["#4c78a8", "#83bcb6", "#f58518", "#e45756"]}
+    )   
+    
+    chart.save(output_filename)
+
+def plot_sorted_stacked_bar_chart_toc(df: pd.DataFrame, year: int, output_filename: str):
+    # Filter data to only include models of interest
+    df_filtered = df.loc[df['model_set'] == "toc"]
+    # Filter data to only include data from @param year
+    df_filtered = df_filtered.query(f"year_id == {year}")
+    
+    chart = alt.Chart(df_filtered).mark_bar().encode(
+        x='sum(pc)',
         y=alt.Y('state_name:N', sort='-x'),
         color='model'
     )
-    # rule = alt.Chart(df_filtered).mark_rule(color='red').encode(
-    # x='mean(mean):Q'
-    # )
+    
     chart.save(output_filename)
 
 if __name__ == "__main__": 
@@ -209,7 +268,7 @@ if __name__ == "__main__":
 
     # Load flat file 
     # TODO: Take the CSV in as an argument
-    file_path = os.path.relpath("data/compiled_final_results.csv")
+    file_path = os.path.relpath("data/final_estimates.csv")
     df = pd.read_csv(file_path, header=0)
     # variables = ['location_id','year_id','state_name','mean','lower','upper','data','model']
     # Exhibit 2a
@@ -223,12 +282,16 @@ if __name__ == "__main__":
     plot_maps_wrapped_facet(df, models_of_interest, "all_maps_faceted.html")
     
     # Exhibit 2b-e, stacked bar
-    models_of_interest = ['Dental','Home health','Hospital','Skilled nursing','Other professional','Other','Pharmaceuticals', 'Physician/clinical services','Medicaid','Medicare','OOP','Private']
-    plot_stacked_bar_chart(df, models_of_interest, "stacked_bar_all.html")
+    # models_of_interest = ['Dental','Home health','Hospital','Skilled nursing','Other professional','Other','Pharmaceuticals', 'Physician/clinical services','Medicaid','Medicare','OOP','Private']
+    # plot_stacked_bar_chart(df, models_of_interest, 2019,  "stacked_bar_all.html")
     models_of_interest = ['Medicare', 'Medicaid', 'Private', 'OOP']
-    plot_stacked_bar_chart(df, models_of_interest, "stacked_bar_selected.html")
-    plot_sorted_stacked_bar_chart(df, models_of_interest, "sorted_stacked_bar_selected.html")
-    plot_normalized_stacked_bar_chart(df, models_of_interest, "normalized_stacked_bar_selected.html")
+    plot_stacked_bar_chart(df, models_of_interest, 2019, "stacked_bar_selected_payer.html")
+    plot_sorted_stacked_bar_chart(df, models_of_interest, 2019, "sorted_stacked_bar_selected_payer.html")
+    plot_normalized_stacked_bar_chart(df, models_of_interest, 2019, "normalized_stacked_bar_selected_payer.html")
+
+    # Type of care stacked bar charts
+    plot_sorted_stacked_bar_chart_toc(df, 2019, "sorted_stacked_bar_selected_toc.html")
+    # plot_normalized_stacked_bar_chart(df, models_of_interest, 2019, "normalized_stacked_bar_selected.html")
 
 
 # Figure 3 
