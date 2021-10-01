@@ -203,36 +203,93 @@ def plot_maps_wrapped_facet(df: pd.DataFrame, models: List[str], output_filename
 # Add regions
 def calculate_regions(df: pd.DataFrame, year: int):
     df_filtered = df.query(f"year_id == {year}")
-    # df_filtered = df_filtered.query("model_set == 'Aggregate'")
 
-    # array(['South', 'West', 'Northeast', 'Midwest'], dtype=object)
     states = df_filtered['state_name']    
     pc = df_filtered['pc']
     assert(len(states) == len(pc))
 
+    region_names = list()
+    region_years = list()
+    region_models = list() 
+    region_pc = list()
+
+    # Add regional values
     unique_regions = pd.unique(df_filtered['region'])
     for r in unique_regions: 
         # Calculate values
         r_subset = df_filtered.query(f"region == '{r}'")
-        num_states = len(r_subset)
-        r_weighted_pc = (r_subset['population'] * r_subset['pc'])/num_states
 
-        ## TODO: Start here For each region, add Medicaid/Medicare/Private/OOP
+        # For each region, calculate pc for each model type
+        # Collapse model types
+        models = pd.unique(r_subset['model'])
+        for m in models: 
+            # For the region, get the models of type m
+            m_subset = r_subset.query(f"model == '{m}'")
+            num_states = len(m_subset)
+            assert(num_states < 51)
+            # Total regional spending per capita 
+            total_spending = (m_subset['population'] * m_subset['pc']).sum()
+            # Total regional population
+            total_population = m_subset['population'].sum()
+            m_weighted_pc = total_spending/total_population
 
-        # Store values
-        states.append(r)
-        pc.append(r_weighted_pc)
-        
-    assert(len(states) == len(pc))
-    assert(len(states) == 51 + len(unique_regions))
+            # Store computed values
+            region_names.append(r.upper())
+            region_years.append(year)
+            region_models.append(m)
+            region_pc.append(m_weighted_pc)
+
+            assert(len(region_names) == len(region_models))
+            assert(len(region_models) == len(region_pc))
+
+    region_dict = dict()
+    region_dict['state_name'] = region_names
+    region_dict['year_id'] = region_years
+    region_dict['model'] = region_models
+    region_dict['pc'] = region_pc
+    
+    return pd.DataFrame.from_dict(region_dict)
+
+# Add US
+def calculate_us(df: pd.DataFrame, year: int): 
+    df_filtered = df.query(f"year_id == {year}")
+
+    us_names = list() 
+    us_years = list()
+    us_models = list() 
+    us_pc = list()
+
+    # Collapse model types
+    models = pd.unique(df_filtered['model'])
+    for m in models: 
+        # Get all the state data for model type m
+        m_subset = df_filtered.query(f"model == '{m}'")
+        num_states = len(m_subset)
+        assert(num_states == 51)
+        # Total spending per capita 
+        total_spending = (m_subset['population'] * m_subset['pc']).sum()
+        # Total population
+        total_population = m_subset['population'].sum()
+        m_weighted_pc = total_spending/total_population
+
+        # Store computed values
+        us_names.append('TOTAL UNITED STATES')
+        us_years.append(year)
+        us_models.append(m)
+        us_pc.append(m_weighted_pc)
+
+        assert(len(us_names) == len(us_models))
+        assert(len(us_models) == len(us_pc))
+
+    us_dict = dict()
+    us_dict['state_name'] = us_names
+    us_dict['year_id'] = us_years
+    us_dict['model'] = us_models
+    us_dict['pc'] = us_pc
+    
+    return pd.DataFrame.from_dict(us_dict)
 
     
-
-    # Add US
-
-    # ASSERT LENGTH is 51 + Region + US
-    import pdb; pdb.set_trace()
-
 def plot_normalized_stacked_bar_chart(df: pd.DataFrame, models: List[str], year: int, output_filename: str):
     # Filter data to only include models of interest
     df_filtered = df.loc[df['model'].isin(models)]
@@ -282,17 +339,20 @@ def plot_stacked_bar_chart(df: pd.DataFrame, models: List[str], year: int, outpu
     chart.save(output_filename)
 
 def plot_sorted_stacked_bar_chart(df: pd.DataFrame, models: List[str], year: int, output_filename: str):
+    import pdb; pdb.set_trace()
     # Filter data to only include models of interest
     df_filtered = df.loc[df['model'].isin(models)]
     # Filter data to only include data from @param year
     df_filtered = df_filtered.query(f"year_id == {year}")
 
+    import pdb; pdb.set_trace()
     # Force order of data to be ["Medicare", "Medicaid", "Private","OOP"]
     df_filtered.loc[df_filtered['model'] == "Medicare", "model"] = "d_Medicare"
     df_filtered.loc[df_filtered['model'] == "Medicaid", "model"] = "c_Medicaid"
     df_filtered.loc[df_filtered['model'] == "Private", "model"] = "b_Private"
     df_filtered.loc[df_filtered['model'] == "OOP", "model"] = "a_OOP"
     
+    import pdb; pdb.set_trace()
     chart = alt.Chart(df_filtered).mark_bar().encode(
         x='sum(pc)',
         y=alt.Y('state_name:N', sort='-x'),
@@ -328,13 +388,10 @@ if __name__ == "__main__":
     df = pd.read_csv(file_path, header=0)
     df_aroc = pd.read_csv(file_path_aroc, header=0)
 
-    calculate_regions(df, 2019)
-
     # Exhibit 2a
     models_of_interest = ['Aggregate']
     plot_maps(df, models_of_interest, "aggregate_map.html")
-
-
+    # Exhibit 2f
     plot_map_aroc(df_aroc, "aroc_map.html")
 
     # Exhibit 2b-e, maps
@@ -344,6 +401,15 @@ if __name__ == "__main__":
     plot_maps_wrapped_facet(df, models_of_interest, "all_maps_faceted.html")
     
     # Exhibit 2b-e, stacked bar
+    # Calculate regional data 
+    regional_df = calculate_regions(df, 2019)
+    # Calculate US data 
+    us_df = calculate_us(df, 2019)
+    # Add regional data
+    df = df.append(regional_df)
+    # Add US data
+    df = df.append(us_df)
+
     models_of_interest = ['Medicare', 'Medicaid', 'Private', 'OOP']
     plot_stacked_bar_chart(df, models_of_interest, 2019, "stacked_bar_selected_payer.html")
     plot_sorted_stacked_bar_chart(df, models_of_interest, 2019, "sorted_stacked_bar_selected_payer.html")
