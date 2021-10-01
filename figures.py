@@ -208,6 +208,7 @@ def calculate_regions(df: pd.DataFrame, year: int):
     pc = df_filtered['pc']
     assert(len(states) == len(pc))
 
+    region_model_sets = list()
     region_names = list()
     region_years = list()
     region_models = list() 
@@ -234,6 +235,9 @@ def calculate_regions(df: pd.DataFrame, year: int):
             m_weighted_pc = total_spending/total_population
 
             # Store computed values
+            model_set = pd.unique(m_subset['model_set'])
+            assert(len(model_set) == 1)
+            region_model_sets.append(model_set[0])
             region_names.append(r.upper())
             region_years.append(year)
             region_models.append(m)
@@ -243,6 +247,7 @@ def calculate_regions(df: pd.DataFrame, year: int):
             assert(len(region_models) == len(region_pc))
 
     region_dict = dict()
+    region_dict['model_set'] = region_model_sets
     region_dict['state_name'] = region_names
     region_dict['year_id'] = region_years
     region_dict['model'] = region_models
@@ -254,6 +259,7 @@ def calculate_regions(df: pd.DataFrame, year: int):
 def calculate_us(df: pd.DataFrame, year: int): 
     df_filtered = df.query(f"year_id == {year}")
 
+    us_model_sets = list()
     us_names = list() 
     us_years = list()
     us_models = list() 
@@ -273,6 +279,9 @@ def calculate_us(df: pd.DataFrame, year: int):
         m_weighted_pc = total_spending/total_population
 
         # Store computed values
+        model_set = pd.unique(m_subset['model_set'])
+        assert(len(model_set) == 1)
+        us_model_sets.append(model_set[0])
         us_names.append('TOTAL UNITED STATES')
         us_years.append(year)
         us_models.append(m)
@@ -282,11 +291,13 @@ def calculate_us(df: pd.DataFrame, year: int):
         assert(len(us_models) == len(us_pc))
 
     us_dict = dict()
+    us_dict['model_set'] = us_model_sets
     us_dict['state_name'] = us_names
     us_dict['year_id'] = us_years
     us_dict['model'] = us_models
     us_dict['pc'] = us_pc
     
+    import pdb; pdb.set_trace()
     return pd.DataFrame.from_dict(us_dict)
 
     
@@ -339,20 +350,17 @@ def plot_stacked_bar_chart(df: pd.DataFrame, models: List[str], year: int, outpu
     chart.save(output_filename)
 
 def plot_sorted_stacked_bar_chart(df: pd.DataFrame, models: List[str], year: int, output_filename: str):
-    import pdb; pdb.set_trace()
     # Filter data to only include models of interest
     df_filtered = df.loc[df['model'].isin(models)]
     # Filter data to only include data from @param year
     df_filtered = df_filtered.query(f"year_id == {year}")
 
-    import pdb; pdb.set_trace()
     # Force order of data to be ["Medicare", "Medicaid", "Private","OOP"]
     df_filtered.loc[df_filtered['model'] == "Medicare", "model"] = "d_Medicare"
     df_filtered.loc[df_filtered['model'] == "Medicaid", "model"] = "c_Medicaid"
     df_filtered.loc[df_filtered['model'] == "Private", "model"] = "b_Private"
     df_filtered.loc[df_filtered['model'] == "OOP", "model"] = "a_OOP"
     
-    import pdb; pdb.set_trace()
     chart = alt.Chart(df_filtered).mark_bar().encode(
         x='sum(pc)',
         y=alt.Y('state_name:N', sort='-x'),
