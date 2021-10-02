@@ -134,6 +134,7 @@ def plot_map_aroc(df: pd.DataFrame, output_filename: str):
     states = alt.topo_feature(data.us_10m.url, 'states')
     chart = alt.Chart(states).mark_geoshape().encode(
         color='aroc:Q'
+        # color=alt.Color('aroc:Q', legend=alt.Legend(format=".0%")),
     ).transform_lookup(
         lookup='id',
         from_=alt.LookupData(df_filtered, 'id', ['aroc'])
@@ -297,7 +298,6 @@ def calculate_us(df: pd.DataFrame, year: int):
     us_dict['model'] = us_models
     us_dict['pc'] = us_pc
     
-    import pdb; pdb.set_trace()
     return pd.DataFrame.from_dict(us_dict)
 
     
@@ -367,8 +367,34 @@ def plot_sorted_stacked_bar_chart(df: pd.DataFrame, models: List[str], year: int
         color=alt.Color('model', sort=['d_Medicare', 'c_Medicaid', 'b_Private', 'a_OOP'])
     ).configure_range(
         category={'scheme': ["#4c78a8", "#83bcb6", "#f58518", "#e45756"]}
-    )   
+    )
     
+    chart.save(output_filename)
+
+
+def plot_sorted_stacked_bar_chart_trellis(df: pd.DataFrame, models: List[str], year: int, output_filename: str):
+    # Filter data to only include models of interest
+    df_filtered = df.loc[df['model'].isin(models)]
+    # Filter data to only include data from @param year
+    df_filtered = df_filtered.query(f"year_id == {year}")
+
+    # Force order of data to be ["Medicare", "Medicaid", "Private","OOP"]
+    df_filtered.loc[df_filtered['model'] == "Medicare", "model"] = "d_Medicare"
+    df_filtered.loc[df_filtered['model'] == "Medicaid", "model"] = "c_Medicaid"
+    df_filtered.loc[df_filtered['model'] == "Private", "model"] = "b_Private"
+    df_filtered.loc[df_filtered['model'] == "OOP", "model"] = "a_OOP"
+    
+    chart = alt.Chart(df_filtered).mark_bar().encode(
+        # tooltip=['state_name:N', 'pc:Q'],
+        facet=alt.Facet('region:N', columns=2),
+        # column='region',
+        x='sum(pc)',
+        y=alt.Y('state_name:N', sort='-x'),
+        color=alt.Color('model', sort=['d_Medicare', 'c_Medicaid', 'b_Private', 'a_OOP'])
+    ).configure_range(
+        category={'scheme': ["#4c78a8", "#83bcb6", "#f58518", "#e45756"]}
+    ).properties(width=220)
+
     chart.save(output_filename)
 
 def plot_sorted_stacked_bar_chart_toc(df: pd.DataFrame, year: int, output_filename: str):
@@ -421,12 +447,9 @@ if __name__ == "__main__":
     models_of_interest = ['Medicare', 'Medicaid', 'Private', 'OOP']
     plot_stacked_bar_chart(df, models_of_interest, 2019, "stacked_bar_selected_payer.html")
     plot_sorted_stacked_bar_chart(df, models_of_interest, 2019, "sorted_stacked_bar_selected_payer.html")
+    # plot_sorted_stacked_bar_chart_trellis(df, models_of_interest, 2019, "sorted_stacked_bar_selected_payer_trellis.html")
     plot_normalized_stacked_bar_chart(df, models_of_interest, 2019, "normalized_stacked_bar_selected_payer.html")
 
     # Type of care stacked bar charts
     plot_sorted_stacked_bar_chart_toc(df, 2019, "sorted_stacked_bar_selected_toc.html")
     # plot_normalized_stacked_bar_chart(df, models_of_interest, 2019, "normalized_stacked_bar_selected.html")
-
-
-# TODO: Add region and US total 
-
